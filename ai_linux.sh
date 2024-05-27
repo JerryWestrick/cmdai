@@ -4,7 +4,7 @@ if [ -z "$1" ]; then
 else
     question="$1"
 fi
-OUTPUT=$(aie "$question" -shell=bash)
+OUTPUT=$(~/.local/bin/cmdai/aie_linux "$question" -shell=bash)
 echo -n "AI use cmd: "
 xdotool type "$OUTPUT"
 echo "\n"

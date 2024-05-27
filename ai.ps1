@@ -1,10 +1,4 @@
-# Load environment variables from .env file
-foreach ($line in Get-Content .\.env) {
-    if ($line -match '^\s*#') { continue }  # skip comment lines
-    if ($line -match '^\s*$') { continue }  # skip blank lines
-    $var, $value = $line.Split("=", 2)
-    [Environment]::SetEnvironmentVariable($var, $value)
-}
+
 # Read command line argument or user input
 if($args.Length -gt 0){
     $question = $args[0]

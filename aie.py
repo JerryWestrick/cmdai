@@ -3,7 +3,10 @@ import json
 import os
 import platform
 import argparse
+import ssl
 from urllib import request, error
+
+import certifi
 from dotenv import load_dotenv
 
 
@@ -13,7 +16,7 @@ def ask_ai(question, shell):
     home_dir = os.path.expanduser("~")
 
     # Build the absolute path of the .env file
-    env_file_path = os.path.join(home_dir, "xxx.env")
+    env_file_path = os.path.join(home_dir, ".env")
 
     # Load the .env file
     load_dotenv(dotenv_path=env_file_path)
@@ -32,7 +35,7 @@ def ask_ai(question, shell):
 
 
 def ask_mistral(question, shell):
-    url = 'https://api.mistral.ai/v1/chat/completions'  # Replace with your URL
+    url = 'https://api.mistral.ai/v1/chat/completions'
 
     # Prepare the headers
     headers = {
@@ -59,15 +62,18 @@ def ask_mistral(question, shell):
     payload = json.dumps(data).encode('utf-8')
 
     # Prepare the request
+    context = ssl.create_default_context(cafile=certifi.where())
     req = request.Request(url, data=payload, headers=headers)
+
 
     # Send the request
     try:
-        resp = request.urlopen(req)
+        resp = request.urlopen(req, context=context)
     except error.HTTPError as e:
         print('HTTPError: {}'.format(e.reason))
     except error.URLError as e:
         print('URLError: {}'.format(e.reason))
+
     else:
         # Read and decode the response
         response = json.loads(resp.read().decode('utf-8'))
@@ -94,14 +100,16 @@ def ask_openai(question):
         ]
     }
 
-    data = json.dumps(data)
-    data = data.encode('utf-8')
+    payload = json.dumps(data).encode('utf-8')
 
-    req = urllib.request.Request(url, data=data, headers=headers)
+    # Prepare the request
+    context = ssl.create_default_context(cafile=certifi.where())
+    req = request.Request(url, data=payload, headers=headers)
+
 
     # Send the request
     try:
-        resp = request.urlopen(req)
+        resp = request.urlopen(req, context=context)
     except error.HTTPError as e:
         print('HTTPError: {}'.format(e.reason))
     except error.URLError as e:
@@ -121,7 +129,7 @@ if __name__ == "__main__":
     args = my_parser.parse_args()
 
     if args.shell:
-        shell = f"{os.name}:{args.shell}"
+        shell = f"{platform.system()}:{platform.version()} - {args.shell}"
     else:
         shell = ''
 

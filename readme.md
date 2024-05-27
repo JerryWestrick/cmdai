@@ -1,10 +1,10 @@
-# The Python program calling AI LLM
+# The Python program calling AI LLM for command line help
 ## aie.py
 
-The python program aie.py is executed 
-to translate the question into a shell command.
-you give it the question as the first argument.
+The python program aie.py is executed to translate the question into a shell command.
+You give it the question as the first argument.
 and -shell=_name_  where _name_ must be one of [cmd, powershell, or bash]
+and it returns a command to do what you asked.
 
 It requires a .env file in users home directory.
 the contents are: 
@@ -16,6 +16,21 @@ the contents are:
     # OpenAI: gpt-4, gpt-4-turbo-preview, gpt-3.5-turbo
     # Mistral: open-mistral-7b, open-mixtral-8x7b, 
     #          mistral-small-latest, mistral-medium-latest, mistral-large-latest
+
+## Operating system Integration.
+Setting and maintaining a python environment on each installation machine was considered overkill.
+In its stead the program pyinstaller is used to make a pseudo executable for each operating system.
+the command "pyinstaller --onefile --console aie.py" must be run on each operating system.
+
+I've setup Github actions to do this.  The executables are:
+
+
+| **operating system** | **filename** | 
+|----------------------|--------------|
+| windows              | aie_win.exe  |
+| linux                | aie_linux    |
+| macos                | aie_mac      |
+
 
 # Shell integration
 ## Linux Bash
@@ -48,7 +63,7 @@ add following line in ~/.bashrc:
 
 ### C:\Users\<username>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1
 
-To allows the syntax sugar: 
+To allow the syntax sugar: 
 
     ai 'list open ports' 
 
@@ -65,7 +80,8 @@ You need to add the following in the profile file:
 
 
 # Windows Cmd.exe
-Unfortunately, the Windows/Dos Cmd.exe is very limited.  Therefore the another approach was required, namely a prompt asking user to confirm execution on not.
+Unfortunately, the Windows/Dos Cmd.exe is very limited.  Therefore, another 
+approach was required, namely a prompt asking user to confirm execution on not.
 
   
     (.venv) C:\Users\Jerry\PycharmProjects\cmdai>ai "List open Ports"
@@ -98,3 +114,4 @@ Although less intuitive than bash or powershell integration, it is still useful.
 
 
 
+# MacOS
