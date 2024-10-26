@@ -1,97 +1,250 @@
 import argparse
+import platform
+import subprocess
+
 import requests
 import json
 import keyring
 import sys
+from jinja2 import Template
+from rich.panel import Panel
+from rich.prompt import Prompt
+from rich.text import Text
+
+from config import config
+from rich.console import Console
+from rich.table import Table
+
+import configparser
+import os
 
 
-def get_api_key(api_key_name='openai_api'):
+def get_options_file_path(filename='cmdai.ini'):
+    home_dir = os.path.expanduser("~")
+    return os.path.join(home_dir, filename)
+
+
+def save_options(options, filename='cmdai.ini'):
+    config = configparser.ConfigParser()
+    config['DEFAULT'] = options
+    with open(get_options_file_path(filename), 'w') as configfile:
+        config.write(configfile)
+
+
+def load_options(filename='cmdai.ini'):
+    config = configparser.ConfigParser()
+    config.read(get_options_file_path(filename))
+    return config['DEFAULT']
+
+
+console = Console()
+
+# Dangerous commands list
+dangerous_commands = [
+    "rm", "del", "mkfs", "dd", "shutdown", "poweroff", "reboot", "format"
+]
+
+def is_dangerous_command(command: str) -> bool:
+    # Split the command to get the base command
+    base_command = command.split()[0]
+    return base_command in dangerous_commands
+
+def execute_command(command: str):
+    if is_dangerous_command(command):
+        console.print("[bold red]Error: Dangerous command detected![/bold red]")
+        return
+
     try:
-        return keyring.get_password('cmdai', username=api_key_name)
-    except keyring.errors.PasswordDeleteError:
-        return None
+        result = subprocess.run(command, shell=True, check=True, text=True, capture_output=True)
+        # console.print("[bold green]Command executed successfully![/bold green]")
+        console.print(result.stdout)
+    except subprocess.CalledProcessError as e:
+        console.print("[bold red]Command execution failed![/bold red]")
+        console.print(f"[red]{e.stderr}[/red]")
 
 
-def store_api_key(api_key_name="", api_key_value=""):
-    keyring.set_password("cmdai", username=api_key_name, password=api_key_value)
+
+def send_request_anthropic(llm) -> str:
+    # console.print(f"Calling {llm['company']}:{llm['model']}")
+    headers = {
+        "x-api-key": llm['API_KEY'],
+        "Content-Type": "application/json",
+        "anthropic-version": "2023-06-01",
+    }
+    template = Template(llm['template'])
+    data = template.render(llm)
+    if llm['debug']:
+        console.print(f"[bold blue]Data to be sent to {llm['company']} API:[/bold blue]")
+        console.print(data)
+
+    response = requests.post(llm['url'], headers=headers, data=data)
+    response_obj = json.loads(response.text)
+    if response_obj['type'] == 'error':
+        err = response_obj['error']
+        console.print(f"[bold red]{err['type']} : {err['message']}[/bold red]")
+        console.print(f"url: {llm['url']}")
+        console.print("header: ", headers)
+        console.print(f"data: {data}")
+        exit(1)
+
+    return response_obj['content'][0]['text']
 
 
-def load_config(file_path='cmdai.json', company=None, model=None):
-
-    if company is None or model is None:
-        raise ValueError("Both company and model names must be provided")
-
-    with open(file_path, 'r') as f:
-        data = json.load(f)
-
-    if company not in data:
-        raise ValueError(f"Invalid company name: {company}")
-
-    api_key = data[company]['key']
-    url = data[company][model]['url']
-    messages = data[company][model]['messages']
-
-    return url, company, model, messages, api_key
-
-
-def send_request(url, company, model, messages, user_input=None):
-    if user_input:
-        messages.append({"role": "user", "content": user_input})
-
+def send_request_openai(llm) -> str:
     headers = {
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {API_KEY}",
+        "Authorization": f"Bearer {llm['API_KEY']}",
     }
+    template = Template(llm['template'])
+    data = template.render(llm)
+    if llm['debug']:
+        console.print(f"[bold blue]Data to be sent to {llm['company']} API:[/bold blue]")
+        console.print(data)
 
-    data = {
-        "model": model,
-        "messages": messages,
-    }
+    response = requests.post(llm['url'], headers=headers, data=data)
+    if response.status_code  != 200:
+        err = json.loads(response.text)['error']
+        console.print(f"[bold red]Error {err['type']}::{err['code']}: [/bold red]{err['message']}")
+        exit(1)
 
-    response = requests.post(url, headers=headers, data=json.dumps(data))
-
-    # Print the response
     response_obj = json.loads(response.text)
-    print(response_obj['choices'][0]['message']['content'])
+    return response_obj['choices'][0]['message']['content']
 
 
-def list_companies_and_models(file_path='cmdai.json'):
-    with open(file_path, 'r') as f:
-        data = json.load(f)
-    for company, models in data.items():
-        print(f'Company: {company}')
-        for model in models:
-            if model != 'key':
-                print(f'\tModel: {model}')
+def send_request_mistral(llm) -> str:
+    headers = {
+        "Content-Type": "application/json",
+        'Accept': "application/json",
+        "Authorization": f"Bearer {llm['API_KEY']}",
+    }
+    template = Template(llm['template'])
+    data = template.render(llm)
+    if llm['debug']:
+        console.print(f"[bold blue]Data to be sent to {llm['company']} API:[/bold blue]")
+        console.print(data)
+
+    response = requests.post(llm['url'], headers=headers, data=data)
+    if response.status_code != 200:
+        console.print(f"[bold red]Error calling {llm['company']} API: {response.status_code} {response.reason}[/bold red]")
+        err = json.loads(response.text)['detail'][0]
+
+        console.print(f"[bold red]{err['msg']}, {err['ctx']['error']} {err['loc'][1]}[/bold red]")
+        console.print(f"url: {llm['url']}")
+        console.print("header: ", headers)
+        console.print(f"data: {data}")
+        exit(1)
+    response_obj = json.loads(response.text)
+    return response_obj['choices'][0]['message']['content']
+
+
+company_routines = {
+    'OpenAI': send_request_openai,
+    'Mistralai': send_request_mistral,
+    'Anthropic': send_request_anthropic
+}
+
+
+def send_request(llm):
+    if llm['company'] not in company_routines:
+        console.print(f"[bold red]Call to {llm['company']} is not supported yet?[/bold red]")
+        sys.exit(1)
+    console.print( f"[bold blue]asking {llm['company']}::{llm['model']}...",end='')
+    response = company_routines[llm['company']](llm)
+    console.print(f"[bold blue]execute? [/]")
+    return response
+
+def print_models(models:dict):
+    table = Table(title="Available Models")
+    table.add_column("Company", style="cyan", no_wrap=True)
+    table.add_column("Model", style="magenta")
+
+    last_company = ''
+    for model, company_name in models.items():
+        if company_name == last_company:
+            table.add_row("", model)
+        else:
+            table.add_row(company_name, model)
+        last_company = company_name
+
+    console.print(table)
+
+
+def ask_to_execute_command(command: str, llm: dict):
+    response = Prompt.ask(
+        f"{command} [bold blue]Yes/No[/]",default="No")
+
+    if response[0].lower() == "y":
+        # console.print("[bold green]Executing the command...[/bold green]")
+        execute_command(command)
+    # else:
+    #     console.print("[bold red]Command execution canceled.[/bold red]")
 
 
 if __name__ == '__main__':
-
     parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--company', help='Name of the company')
     parser.add_argument('-m', '--model', help='Name of the model')
-    parser.add_argument('-q', '--question', help='The user question')
-    parser.add_argument('--list', action='store_true', help='List all companies and models')
+    # parser.add_argument('-q', '--question', help='The user question')
+    parser.add_argument('question', nargs='?', help='The user question')
+    parser.add_argument('-l', '--list', action='store_true', help='List all companies and models')
+    parser.add_argument('-k', '--key', action='store_true', help='Ask for (new) Company Key')
+    parser.add_argument('-d', '--debug', action='store_true', help='Print message to LLM, for debugging purposes.')
     args = parser.parse_args()
 
+    loaded_options = load_options()
+    # print(dict(loaded_options))
+
+    models = {}
+    for company_name, company in config.items():
+        for model in company['models']:
+            models[model] = company_name
+
     if args.list:
-        list_companies_and_models()
+        print_models(models)
         sys.exit(0)
 
     if not args.question:
-        print("A question is required for this operation.")
+        console.print("[bold red]A question is required for this operation.[/bold red]")
         sys.exit(1)
 
-    url, company, model, messages, api_key = load_config(company=args.company, model=args.model)
+    model = args.model
+    if not model:
+        model = loaded_options['model']
 
-    API_KEY = get_api_key(api_key_name=api_key)
+    if model not in models:
+        console.print(f"[bold red]Model {model} is not defined.[/bold red]")
+        sys.exit(1)
+
+    company_name = models[model]
+    llm = config[company_name]
+
+    try:
+        API_KEY = keyring.get_password('cmdai', username=llm['api_key'])
+    except keyring.errors.PasswordDeleteError:
+        console.print(f"[bold red]Error accessing keyring ('cmdai', username={llm['api_key']})[/bold red]")
+        API_KEY = None
+
+    if args.key:
+        API_KEY = None
+
     if API_KEY is None:
-        API_KEY = input(f"Please enter your {company} API key: ")
-        store_api_key(api_key_name=api_key, api_key_value=API_KEY)
+        API_KEY = console.input(f"Please enter your {llm['company']} API key: ")
+        keyring.set_password("cmdai", username=llm['api_key'], password=API_KEY)
 
     if not API_KEY:
-        print("API key cannot be empty.")
+        console.print("[bold red]API key cannot be empty.[/bold red]")
         sys.exit(1)
 
-    user_input = args.question
-    send_request(url, company, model, messages, user_input)
+    llm['API_KEY'] = API_KEY
+    llm['user_input'] = args.question
+    llm['os'] = platform.platform(terse=True)
+    llm['model'] = model
+    llm['company'] = company_name
+    llm['debug'] = args.debug
+
+    # Example usage
+    user_options = {'model': model}
+    save_options(user_options)
+
+    cmd = send_request(llm)
+    # console.print(cmd)
+    ask_to_execute_command(cmd, llm)
