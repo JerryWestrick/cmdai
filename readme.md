@@ -1,117 +1,99 @@
-# The Python program calling AI LLM for command line help
-## aie.py
+# Command Line AI Assistance
+## cmdai
 
-The python program aie.py is executed to translate the question into a shell command.
-You give it the question as the first argument.
-and -shell=_name_  where _name_ must be one of [cmd, powershell, or bash]
-and it returns a command to do what you asked.
+cmdai is an executable built from the python program cmdai.py. 
+You give it a question and it returns the appropriate shell command.
 
-It requires a .env file in users home directory.
-the contents are: 
+    $ cmdai --help
+    usage: cmdai [-h] [-m MODEL] [-l] [-k] [-d] [-v] [-c CONFIG] [question]
+    
+    positional arguments:
+      question              The user question
+    
+    options:
+      -h, --help            show this help message and exit
+      -m MODEL, --model MODEL
+                            Name of the model
+      -l, --list            List all companies and models
+      -k, --key             Ask for (new) Company Key
+      -d, --debug           Print message to LLM, for debugging purposes.
+      -v, --version         show program's version number and exit
+      -c CONFIG, --config CONFIG
+                            Path to the config file. Default: ~/.config/cmdai.ini
+## Version
+    $ cmdai --version
+    cmdai 0.9.2
+    $ 
 
-    OPENAI_API_KEY=<Your open ai key>
-    MISTRAL_API_KEY=<Your mistral ai key>
-    LLM_MODEL='mistral-large-latest'
-    # valid for LLM_MODEL:
-    # OpenAI: gpt-4, gpt-4-turbo-preview, gpt-3.5-turbo
-    # Mistral: open-mistral-7b, open-mixtral-8x7b, 
-    #          mistral-small-latest, mistral-medium-latest, mistral-large-latest
+
+## Supported LLms:
+
+  $ cmdai --list
+
+### Available Models are listed
+
+| Company   | Model                    |
+|-----------|--------------------------|
+| OpenAI    | gpt-4o                   |
+|           | gpt-4o-mini              |
+|           | o1-preview               |
+|           | o1-mini                  |
+|           | gpt-4-turbo              |
+| Mistralai | mistral-large-latest     |
+|           | mistral-small-latest     |
+|           | mistral-large-2407       |
+|           | mistral-small-2409       |
+|           | codestral-2405           |
+|           | mistral-embed            |
+|           | ministral-3b-latest      |
+|           | ministral-8b-latest      |
+|           | pixtral-12b              |
+|           | mistral-nemo             |
+|           | open-mistral-7b          |
+|           | open-mixtral-8x7b        |
+|           | open-mixtral-8x22b       |
+| Anthropic | claude-3-5-sonnet-latest |
+|           | claude-3-opus-latest     |
+|           | claude-3-sonnet-20240229 |
+|           | claude-3-haiku-20240307  |
+
+### Select LLM
+Select your llm with the ***--model gpt-4o-mini*** <-- Use this model
+
+Once a model is selected it will be used until you select a different model.
+
+## API KEYs
+The program requires an API_KEY from each company to access the LLM.
+
+You will prompted for the api key the first time you use an LLM of a company or when you specify --key option to set new key.  
+Keys are securely stored on your machine, using python keyring package.
+
+
+    $ cmdai "list the current values of my temperature sensors" -k
+    Please enter your OpenAI API key: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    <-- paste your key
+    asking OpenAI::gpt-4o-mini...execute? 
+    sensors Yes/No (No): n
+    $ 
+
 
 ## Operating system Integration.
-Setting and maintaining a python environment on each installation machine was considered overkill.
-In its stead the program pyinstaller is used to make a pseudo executable for each operating system.
-the command "pyinstaller --onefile --console aie.py" must be run on each operating system.
+I've built (or plan to build) executables for 3 operating systems
 
-I've setup Github actions to do this.  The executables are:
+| **operating system** | **filename**  | 
+|----------------------|---------------|
+| windows              | win/cmdai.exe |
+| linux                | lin/cmdai     |
+| macos                | mac/cmdai     |
 
+### Linux
+1. Copy the file lin/cmdai to the directory ~/.local/bin/
+2. make sure ~./local/bin is in your executable path.
 
-| **operating system** | **filename** | 
-|----------------------|--------------|
-| windows              | aie_win.exe  |
-| linux                | aie_linux    |
-| macos                | aie_mac      |
+### Windows
+1. Copy the file win/cmdai.exe to the directory ???
+2. make sure ??? is in your executable path.
 
+## MacOs
+1. Copy the file mac/cmdai to the directory ???
+2. make sure ??? is in your executable path.
 
-# Shell integration
-## Linux Bash
-
-### ai.sh
-
-The ai.shell:
-- prompts for question if none was given.
-- Translates question to bash command via:
- 
-  OUTPUT=$(aie "$question" -shell=bash)
-- uses xdotool type to insert command as if you had typed it.
-
-### ~/.bashrc
-to allow ai syntax sugar:
-
-    ai "list open ports"
-add following line in ~/.bashrc:
-
-    alias ai='ai.sh'
-
-## Windows Powershell
-
-### ai.ps1
-
- the powershell script: ai.ps1: calls 
-   - 'aie.exe "$question" -shell=powershell'  (to do the translation)
-   - Then turns string $COMMAND into keystrokes (escaping special characters)
-   - and then inserts the keystrokes into the commandline
-
-### C:\Users\<username>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1
-
-To allow the syntax sugar: 
-
-    ai 'list open ports' 
-
-You need to add the following in the profile file:
-
-    function Run-AIScript {
-        param(
-            [Parameter(Position=0, Mandatory=$false)]
-            [string]$question
-        )
-        & 'ai.ps1' $question
-    }
-    Set-Alias -Name ai -Value Run-AIScript
-
-
-# Windows Cmd.exe
-Unfortunately, the Windows/Dos Cmd.exe is very limited.  Therefore, another 
-approach was required, namely a prompt asking user to confirm execution on not.
-
-  
-    (.venv) C:\Users\Jerry\PycharmProjects\cmdai>ai "List open Ports"
-    AI Cmd: [netstat -ano | findstr /i "listening"] execute? (y/n) y
-      TCP    0.0.0.0:135            0.0.0.0:0              LISTENING       960
-      TCP    0.0.0.0:445            0.0.0.0:0              LISTENING       4
-      TCP    0.0.0.0:5040           0.0.0.0:0              LISTENING       592
-      TCP    0.0.0.0:7680           0.0.0.0:0              LISTENING       1196
-      TCP    0.0.0.0:49664          0.0.0.0:0              LISTENING       712
-      TCP    0.0.0.0:49665          0.0.0.0:0              LISTENING       560
-      TCP    0.0.0.0:49666          0.0.0.0:0              LISTENING       1200
-      TCP    0.0.0.0:49667          0.0.0.0:0              LISTENING       1364
-      TCP    0.0.0.0:49668          0.0.0.0:0              LISTENING       2632
-      TCP    0.0.0.0:49669          0.0.0.0:0              LISTENING       704
-      TCP    10.0.2.15:139          0.0.0.0:0              LISTENING       4
-      TCP    127.0.0.1:52829        0.0.0.0:0              LISTENING       7436
-      TCP    [::]:135               [::]:0                 LISTENING       960
-      TCP    [::]:445               [::]:0                 LISTENING       4
-      TCP    [::]:7680              [::]:0                 LISTENING       1196
-      TCP    [::]:49664             [::]:0                 LISTENING       712
-      TCP    [::]:49665             [::]:0                 LISTENING       560
-      TCP    [::]:49666             [::]:0                 LISTENING       1200
-      TCP    [::]:49667             [::]:0                 LISTENING       1364
-      TCP    [::]:49668             [::]:0                 LISTENING       2632
-      TCP    [::]:49669             [::]:0                 LISTENING       704
-    
-    (.venv) C:\Users\Jerry\PycharmProjects\cmdai>
-
-Although less intuitive than bash or powershell integration, it is still useful.
-
-
-
-# MacOS

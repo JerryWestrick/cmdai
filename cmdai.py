@@ -18,6 +18,7 @@ from rich.table import Table
 import configparser
 import os
 
+version_no = '0.9.2'
 
 def get_options_file_path(filename='cmdai.ini'):
     home_dir = os.path.expanduser("~")
@@ -179,7 +180,6 @@ def ask_to_execute_command(command: str, llm: dict):
     # else:
     #     console.print("[bold red]Command execution canceled.[/bold red]")
 
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-m', '--model', help='Name of the model')
@@ -188,6 +188,8 @@ if __name__ == '__main__':
     parser.add_argument('-l', '--list', action='store_true', help='List all companies and models')
     parser.add_argument('-k', '--key', action='store_true', help='Ask for (new) Company Key')
     parser.add_argument('-d', '--debug', action='store_true', help='Print message to LLM, for debugging purposes.')
+    parser.add_argument('-v', '--version', action='version', version=f'%(prog)s {version_no}')
+    parser.add_argument('-c', '--config', help='Path to the config file. Default: ~/.config/cmdai.ini', default=get_options_file_path())
     args = parser.parse_args()
 
     loaded_options = load_options()
@@ -227,7 +229,7 @@ if __name__ == '__main__':
         API_KEY = None
 
     if API_KEY is None:
-        API_KEY = console.input(f"Please enter your {llm['company']} API key: ")
+        API_KEY = console.input(f"Please enter your {company_name} API key: ")
         keyring.set_password("cmdai", username=llm['api_key'], password=API_KEY)
 
     if not API_KEY:
