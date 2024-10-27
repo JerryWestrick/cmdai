@@ -18,6 +18,7 @@ from rich.table import Table
 import configparser
 import os
 
+version_no = '0.9.3'
 
 def get_options_file_path(filename='cmdai.ini'):
     home_dir = os.path.expanduser("~")
@@ -49,6 +50,7 @@ def is_dangerous_command(command: str) -> bool:
     base_command = command.split()[0]
     return base_command in dangerous_commands
 
+
 def execute_command(command: str):
     if is_dangerous_command(command):
         console.print("[bold red]Error: Dangerous command detected![/bold red]")
@@ -58,10 +60,24 @@ def execute_command(command: str):
         result = subprocess.run(command, shell=True, check=True, text=True, capture_output=True)
         # console.print("[bold green]Command executed successfully![/bold green]")
         console.print(result.stdout)
+        return 'success', result.stdout
+
     except subprocess.CalledProcessError as e:
         console.print("[bold red]Command execution failed![/bold red]")
         console.print(f"[red]{e.stderr}[/red]")
+        return 'error',e.stderr
 
+
+def ask_to_execute_command(command: str, llm: dict):
+    response = Prompt.ask(
+        f"{command} [bold blue]Yes/No[/]",default="No")
+
+    if response[0].lower() == "y":
+        # console.print("[bold green]Executing the command...[/bold green]")
+        rc, txt = execute_command(command)
+        return rc, txt
+    # else:
+    #     console.print("[bold red]Command execution canceled.[/bold red]")
 
 
 def send_request_anthropic(llm) -> str:
@@ -88,6 +104,39 @@ def send_request_anthropic(llm) -> str:
         exit(1)
 
     return response_obj['content'][0]['text']
+
+
+def send_request_xai(llm) -> str:
+    # console.print(f"Calling {llm['company']}:{llm['model']}")
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {llm['API_KEY']}",
+    }
+    template = Template(llm['template'])
+    data = template.render(llm)
+    if llm['debug']:
+        console.print(f"[bold blue]Data to be sent to {llm['company']} API:[/bold blue]")
+        console.print(data)
+
+    response = requests.post(llm['url'], headers=headers, data=data)
+
+    if response.status_code  != 200:
+        err = json.loads(response.text)['error']
+        console.print(f"[bold red]Error {err['type']}::{err['code']}: [/bold red]{err['message']}")
+        exit(1)
+
+    try:
+        response_obj = json.loads(response.text)
+    except KeyError as err:
+        console.print(f"[bold red]Json Error from {llm['company']} API:[/bold red]")
+        console.print(response.text)
+        exit(1)
+
+    if llm['debug']:
+        console.print(f"[bold blue]Response from {llm['company']} API:[/bold blue]")
+        console.print(response_obj)
+
+    return response_obj['choices'][0]['message']['content']
 
 
 def send_request_openai(llm) -> str:
@@ -140,7 +189,8 @@ def send_request_mistral(llm) -> str:
 company_routines = {
     'OpenAI': send_request_openai,
     'Mistralai': send_request_mistral,
-    'Anthropic': send_request_anthropic
+    'Anthropic': send_request_anthropic,
+    'XAI': send_request_xai,
 }
 
 
@@ -152,6 +202,7 @@ def send_request(llm):
     response = company_routines[llm['company']](llm)
     console.print(f"[bold blue]execute? [/]")
     return response
+
 
 def print_models(models:dict):
     table = Table(title="Available Models")
@@ -169,17 +220,6 @@ def print_models(models:dict):
     console.print(table)
 
 
-def ask_to_execute_command(command: str, llm: dict):
-    response = Prompt.ask(
-        f"{command} [bold blue]Yes/No[/]",default="No")
-
-    if response[0].lower() == "y":
-        # console.print("[bold green]Executing the command...[/bold green]")
-        execute_command(command)
-    # else:
-    #     console.print("[bold red]Command execution canceled.[/bold red]")
-
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-m', '--model', help='Name of the model')
@@ -188,6 +228,8 @@ if __name__ == '__main__':
     parser.add_argument('-l', '--list', action='store_true', help='List all companies and models')
     parser.add_argument('-k', '--key', action='store_true', help='Ask for (new) Company Key')
     parser.add_argument('-d', '--debug', action='store_true', help='Print message to LLM, for debugging purposes.')
+    parser.add_argument('-v', '--version', action='version', version=f'%(prog)s {version_no}')
+    parser.add_argument('-c', '--config', help='Path to the config file. Default: ~/.config/cmdai.ini', default=get_options_file_path())
     args = parser.parse_args()
 
     loaded_options = load_options()
@@ -227,7 +269,7 @@ if __name__ == '__main__':
         API_KEY = None
 
     if API_KEY is None:
-        API_KEY = console.input(f"Please enter your {llm['company']} API key: ")
+        API_KEY = console.input(f"Please enter your {company_name} API key: ")
         keyring.set_password("cmdai", username=llm['api_key'], password=API_KEY)
 
     if not API_KEY:
@@ -247,4 +289,5 @@ if __name__ == '__main__':
 
     cmd = send_request(llm)
     # console.print(cmd)
-    ask_to_execute_command(cmd, llm)
+    return_code, result = ask_to_execute_command(cmd, llm)
+

@@ -17,6 +17,19 @@ config = {
               ]}''',
         "models": ["gpt-4o", "gpt-4o-mini", "o1-preview", "o1-mini", "gpt-4-turbo"]
     },
+    "XAI": {
+        "url": "https://api.x.ai/v1/chat/completions",
+        "api_key": "X_AI_API_KEY",
+        "template": '''{ "model": "{{ model }}",
+                "messages":[
+                    {"role": "system",
+                     "content": "Help the user working on {{ os_system }} create a command. JUST COMMAND. NO COMMENTS, NO EXPLANATIONS."},
+                    {"role": "user", "content": "Change directory to my home dir"},
+                    {"role": "assistant", "content": "cd"},
+                    {"role": "user", "content": "{{ user_input }}"}
+                ]}''',
+        "models": ["grok-beta"]
+    },
     "Mistralai": {
         "url": "https://api.mistral.ai/v1/chat/completions",
         "api_key": "MISTRAL_API_KEY",
