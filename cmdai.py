@@ -18,7 +18,7 @@ from rich.table import Table
 import configparser
 import os
 
-version_no = '0.9.3'
+version_no = '0.9.4'
 
 def get_options_file_path(filename='cmdai.ini'):
     home_dir = os.path.expanduser("~")
