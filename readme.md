@@ -1,4 +1,9 @@
 # Command Line AI Assistance
+## usage
+
+
+![](Screenshot.png)
+
 ## cmdai
 
 cmdai is an executable built from the python program cmdai.py. 
@@ -66,12 +71,13 @@ Once a model is selected it will be used until you select a different model.
 ## API KEYs
 The program requires an API_KEY from each company to access the LLM.
 
-You will prompted for the api key the first time you use an LLM of a company or when you specify --key option to set new key.  
+You will be prompted for the api key the first time you use an LLM of a company 
+or when you specify --key option to set new key.  
 Keys are securely stored on your machine, using python keyring package.
 
 
     $ cmdai "list the current values of my temperature sensors" -k
-    Please enter your OpenAI API key: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    <-- paste your key
+    Please enter your OpenAI API key: [paste your key here]
     asking OpenAI::gpt-4o-mini...execute? 
     sensors Yes/No (No): n
     $ 
