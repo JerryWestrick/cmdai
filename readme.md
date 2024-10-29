@@ -22,15 +22,15 @@ You give it a question and it returns the appropriate shell command.
                             Path to the config file. Default: ~/.config/cmdai.ini
 ## Version
     $ cmdai --version
-    cmdai 0.9.2
+    cmdai 0.9.4
     $ 
 
 
 ## Supported LLms:
 
-  $ cmdai --list
+    $ cmdai --list
 
-### Available Models are listed
+### Available Models
 
 | Company   | Model                    |
 |-----------|--------------------------|
@@ -39,6 +39,7 @@ You give it a question and it returns the appropriate shell command.
 |           | o1-preview               |
 |           | o1-mini                  |
 |           | gpt-4-turbo              |
+| XAI       | grok-beta                |
 | Mistralai | mistral-large-latest     |
 |           | mistral-small-latest     |
 |           | mistral-large-2407       |
