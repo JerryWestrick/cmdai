@@ -104,3 +104,6 @@ I've built (or plan to build) executables for 3 operating systems
 1. Copy the file mac/cmdai to the directory ???
 2. make sure ??? is in your executable path.
 
+
+# Eh Th-Th-Th-Th-Th-Th-That is all Folks!
+enjoy
