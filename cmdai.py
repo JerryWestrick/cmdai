@@ -18,7 +18,12 @@ from rich.table import Table
 import configparser
 import os
 
-version_no = '0.9.4'
+VERSION_NO = '0.9.7'
+
+# Dangerous commands list
+DANGEROUS_COMMANDS = [
+    "rm", "del", "mkfs", "dd", "shutdown", "poweroff", "reboot", "format"
+]
 
 def get_options_file_path(filename='cmdai.ini'):
     home_dir = os.path.expanduser("~")
@@ -26,10 +31,10 @@ def get_options_file_path(filename='cmdai.ini'):
 
 
 def save_options(options, filename='cmdai.ini'):
-    config = configparser.ConfigParser()
-    config['DEFAULT'] = options
+    conf = configparser.ConfigParser()
+    conf['DEFAULT'] = options
     with open(get_options_file_path(filename), 'w') as configfile:
-        config.write(configfile)
+        conf.write(configfile)
 
 
 def load_options(filename='cmdai.ini'):
@@ -40,21 +45,17 @@ def load_options(filename='cmdai.ini'):
 
 console = Console()
 
-# Dangerous commands list
-dangerous_commands = [
-    "rm", "del", "mkfs", "dd", "shutdown", "poweroff", "reboot", "format"
-]
 
 def is_dangerous_command(command: str) -> bool:
     # Split the command to get the base command
     base_command = command.split()[0]
-    return base_command in dangerous_commands
+    return base_command in DANGEROUS_COMMANDS
 
 
 def execute_command(command: str):
     if is_dangerous_command(command):
         console.print("[bold red]Error: Dangerous command detected![/bold red]")
-        return
+        return "Error", "Dangerous Command"
 
     try:
         result = subprocess.run(command, shell=True, check=True, text=True, capture_output=True)
@@ -76,53 +77,39 @@ def ask_to_execute_command(command: str, llm: dict):
         # console.print("[bold green]Executing the command...[/bold green]")
         rc, txt = execute_command(command)
         return rc, txt
-    # else:
-    #     console.print("[bold red]Command execution canceled.[/bold red]")
+    else:
+        return "Ignored", command
 
 
-def send_request_anthropic(llm) -> str:
-    # console.print(f"Calling {llm['company']}:{llm['model']}")
-    headers = {
-        "x-api-key": llm['API_KEY'],
-        "Content-Type": "application/json",
-        "anthropic-version": "2023-06-01",
-    }
-    template = Template(llm['template'])
-    data = template.render(llm)
+
+def send_request(llm):
+    console.print( f"[bold blue]asking {llm['company']}::{llm['model']}...",end='')
+    header_template = Template(llm['tplHeader'])
+    hdr_str = header_template.render(llm)
+    hdr = json.loads(hdr_str)
+
+    data_template = Template(llm['tplData'])
+    data = data_template.render(llm)
+
     if llm['debug']:
         console.print(f"[bold blue]Data to be sent to {llm['company']} API:[/bold blue]")
         console.print(data)
 
-    response = requests.post(llm['url'], headers=headers, data=data)
-    response_obj = json.loads(response.text)
-    if response_obj['type'] == 'error':
-        err = response_obj['error']
-        console.print(f"[bold red]{err['type']} : {err['message']}[/bold red]")
+    response = requests.post(llm['url'], headers=hdr, data=data)
+
+    if response.status_code != 200:
+        console.print(f"[bold red]Error calling {llm['company']}::{llm['model']} API: {response.status_code} {response.reason}[/bold red]")
         console.print(f"url: {llm['url']}")
-        console.print("header: ", headers)
-        console.print(f"data: {data}")
-        exit(1)
+        console.print("header: ", hdr)
+        console.print("data: ", data)
 
-    return response_obj['content'][0]['text']
+        if llm['response_text_is_json']:
+            err = json.loads(response.text)
+            console.print(f"[bold red]{err}[/bold red]")
+        else:
+            console.print(f"[bold blue]Response from {llm['company']} API:[/bold blue]")
+            console.print(response.text)
 
-
-def send_request_xai(llm) -> str:
-    # console.print(f"Calling {llm['company']}:{llm['model']}")
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {llm['API_KEY']}",
-    }
-    template = Template(llm['template'])
-    data = template.render(llm)
-    if llm['debug']:
-        console.print(f"[bold blue]Data to be sent to {llm['company']} API:[/bold blue]")
-        console.print(data)
-
-    response = requests.post(llm['url'], headers=headers, data=data)
-
-    if response.status_code  != 200:
-        err = json.loads(response.text)['error']
-        console.print(f"[bold red]Error {err['type']}::{err['code']}: [/bold red]{err['message']}")
         exit(1)
 
     try:
@@ -136,72 +123,17 @@ def send_request_xai(llm) -> str:
         console.print(f"[bold blue]Response from {llm['company']} API:[/bold blue]")
         console.print(response_obj)
 
-    return response_obj['choices'][0]['message']['content']
 
 
-def send_request_openai(llm) -> str:
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {llm['API_KEY']}",
-    }
-    template = Template(llm['template'])
-    data = template.render(llm)
-    if llm['debug']:
-        console.print(f"[bold blue]Data to be sent to {llm['company']} API:[/bold blue]")
-        console.print(data)
+    return_obj = response_obj
+    for idx in llm['response_keys']:
+        return_obj = return_obj[idx]
 
-    response = requests.post(llm['url'], headers=headers, data=data)
-    if response.status_code  != 200:
-        err = json.loads(response.text)['error']
-        console.print(f"[bold red]Error {err['type']}::{err['code']}: [/bold red]{err['message']}")
-        exit(1)
-
-    response_obj = json.loads(response.text)
-    return response_obj['choices'][0]['message']['content']
-
-
-def send_request_mistral(llm) -> str:
-    headers = {
-        "Content-Type": "application/json",
-        'Accept': "application/json",
-        "Authorization": f"Bearer {llm['API_KEY']}",
-    }
-    template = Template(llm['template'])
-    data = template.render(llm)
-    if llm['debug']:
-        console.print(f"[bold blue]Data to be sent to {llm['company']} API:[/bold blue]")
-        console.print(data)
-
-    response = requests.post(llm['url'], headers=headers, data=data)
-    if response.status_code != 200:
-        console.print(f"[bold red]Error calling {llm['company']} API: {response.status_code} {response.reason}[/bold red]")
-        err = json.loads(response.text)['detail'][0]
-
-        console.print(f"[bold red]{err['msg']}, {err['ctx']['error']} {err['loc'][1]}[/bold red]")
-        console.print(f"url: {llm['url']}")
-        console.print("header: ", headers)
-        console.print(f"data: {data}")
-        exit(1)
-    response_obj = json.loads(response.text)
-    return response_obj['choices'][0]['message']['content']
-
-
-company_routines = {
-    'OpenAI': send_request_openai,
-    'Mistralai': send_request_mistral,
-    'Anthropic': send_request_anthropic,
-    'XAI': send_request_xai,
-}
-
-
-def send_request(llm):
-    if llm['company'] not in company_routines:
-        console.print(f"[bold red]Call to {llm['company']} is not supported yet?[/bold red]")
-        sys.exit(1)
-    console.print( f"[bold blue]asking {llm['company']}::{llm['model']}...",end='')
-    response = company_routines[llm['company']](llm)
     console.print(f"[bold blue]execute? [/]")
-    return response
+
+
+    return return_obj
+
 
 
 def print_models(models:dict):
@@ -228,8 +160,7 @@ if __name__ == '__main__':
     parser.add_argument('-l', '--list', action='store_true', help='List all companies and models')
     parser.add_argument('-k', '--key', action='store_true', help='Ask for (new) Company Key')
     parser.add_argument('-d', '--debug', action='store_true', help='Print message to LLM, for debugging purposes.')
-    parser.add_argument('-v', '--version', action='version', version=f'%(prog)s {version_no}')
-    parser.add_argument('-c', '--config', help='Path to the config file. Default: ~/.config/cmdai.ini', default=get_options_file_path())
+    parser.add_argument('-v', '--version', action='version', version=f'%(prog)s {VERSION_NO}')
     args = parser.parse_args()
 
     loaded_options = load_options()
@@ -278,7 +209,7 @@ if __name__ == '__main__':
 
     llm['API_KEY'] = API_KEY
     llm['user_input'] = args.question
-    llm['os'] = platform.platform(terse=True)
+    llm['os_system'] = platform.platform(terse=True)
     llm['model'] = model
     llm['company'] = company_name
     llm['debug'] = args.debug
