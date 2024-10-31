@@ -18,7 +18,7 @@ from rich.table import Table
 import configparser
 import os
 
-VERSION_NO = '0.9.7'
+VERSION_NO = '0.9.8'
 
 # Dangerous commands list
 DANGEROUS_COMMANDS = [
