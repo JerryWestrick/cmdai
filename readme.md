@@ -83,7 +83,7 @@ Keys are securely stored on your machine, using python keyring package.
     $ 
 
 
-## Operating system Integration.
+## Operating System Integration.
 I've built (or plan to build) executables for 3 operating systems
 
 | **operating system** | **filename**  | 
@@ -103,6 +103,23 @@ I've built (or plan to build) executables for 3 operating systems
 ## MacOs
 1. Copy the file mac/cmdai to the directory ???
 2. make sure ??? is in your executable path.
+
+
+## Building Executables
+executables are built using  
+### Linux
+1. Copy the file lin/cmdai to the directory ~/.local/bin/
+2. make sure ~./local/bin is in your executable path.
+
+### Windows
+1. Copy the file win/cmdai.exe to the directory ???
+2. make sure ??? is in your executable path.
+
+## MacOs
+1. Copy the file mac/cmdai to the directory ???
+2. make sure ??? is in your executable path.
+
+
 
 
 # Eh Th-Th-Th-Th-Th-Th-That is all Folks!
