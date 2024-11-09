@@ -106,19 +106,20 @@ I've built (or plan to build) executables for 3 operating systems
 
 
 ## Building Executables
-executables are built using  
-### Linux
-1. Copy the file lin/cmdai to the directory ~/.local/bin/
-2. make sure ~./local/bin is in your executable path.
+executables are built using the pyinstaller command: 
 
-### Windows
-1. Copy the file win/cmdai.exe to the directory ???
-2. make sure ??? is in your executable path.
+`bash
+pyinstaller --onefile cmdai.py
+`
+This command will create an executable called cmdai (cmdai.exe on windows)
+This file will be in the dist\ directory.
+You need to copy it to the correct os directory:
 
-## MacOs
-1. Copy the file mac/cmdai to the directory ???
-2. make sure ??? is in your executable path.
-
+| **operating system** | **filename**  | 
+|----------------------|---------------|
+| windows              | win/cmdai.exe |
+| linux                | lin/cmdai     |
+| macos                | mac/cmdai     |
 
 
 
