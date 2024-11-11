@@ -7,17 +7,13 @@ import call_llm
 import sys
 
 from rich.prompt import Prompt
-from rich.panel import Panel
-from rich.text import Text
 from rich.console import Console
 
 import configparser
 import os
 import keyring
 
-import asyncio
-
-VERSION_NO = '0.9'
+VERSION_NO = '1.0'
 
 # Dangerous commands list
 DANGEROUS_COMMANDS = [
@@ -134,7 +130,7 @@ if __name__ == '__main__':
     cmd = call_llm.send_request(llm, args.question)
     if not ask_to_execute_command(cmd, llm):
         console.print("skipping...")
-        exit(0)
+        sys.exit(0)
 
     rc, txt = execute_command(cmd)
     if rc:
